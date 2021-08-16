@@ -13,3 +13,7 @@ The domain join artifact gets the relevant creds from an Azure keyvault.  Releva
 If you have all the resources for devtest labs contained in a single resource group https://docs.microsoft.com/en-us/azure/devtest-labs/resource-group-control you will need the following permissions set for the VM user managed identity on that RG:
 * Contributor 
 * Managed Identity Operator
+
+
+### Azure Dev Test Labs 
+https://docs.microsoft.com/en-us/azure/devtest-labs/ 
