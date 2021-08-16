@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/Azure/azure-devtestlab/master/schemas/2016-11-28/dtlArtifacts.json",
-  "title": "Auto Join Active Directory (AD) domain",
+  "title": "Auto Join Active Directory (AD) domain V1",
   "description": "Joins the virtual machine to the given Active Directory domain and reboots the machine.",
   "publisher": "Roger Best - MSFT",
   "tags": [
