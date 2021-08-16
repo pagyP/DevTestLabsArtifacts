@@ -10,6 +10,11 @@
   "targetOsType": "Windows",
   "runCommand": {
     "commandToExecute": "powershell.exe -ExecutionPolicy bypass \"& ./artifact.ps1"
-  }
+  },
+  "postDeployActions": [
+    {
+      "action": "restart"
+    }
+  ]
   
 }
