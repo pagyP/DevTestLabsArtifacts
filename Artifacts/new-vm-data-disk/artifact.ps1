@@ -1,3 +1,46 @@
+  
+##################################################################################################
+#
+# Parameters to this script file.
+#
+
+[CmdletBinding()]
+param(
+    # comma- separated list of powershell modules.
+    [string] $PsModules = "Az",
+
+    # Boolean indicating if we should allow empty checksums. Default to true to match previous artifact functionality despite security
+    [bool] $AllowEmptyChecksums = $true,
+
+    # Boolean indicating if we should ignore checksums. Default to false for security
+    [bool] $IgnoreChecksums = $false,
+    
+    # Minimum PowerShell version required to execute this script.
+    [int] $PSVersionRequired = 5,
+
+    $storageType = 'StandardSSD_LRS',
+    $dataDiskNameSuffix =  '_datadisk1',
+    $diskSize = 200
+
+)
+
+###################################################################################################
+#
+# PowerShell configurations
+#
+
+# NOTE: Because the $ErrorActionPreference is "Stop", this script will stop on first failure.
+#       This is necessary to ensure we capture errors inside the try-catch-finally block.
+$ErrorActionPreference = 'Stop'
+
+# Suppress progress bar output.
+$ProgressPreference = 'SilentlyContinue'
+
+# Ensure we force use of TLS 1.2 for all downloads.
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+# Expected path of the choco.exe file.
+$choco = "$Env:ProgramData/chocolatey/choco.exe"
 
 ###################################################################################################
 #
@@ -24,54 +67,150 @@ trap
 }
 
 ###################################################################################################
+#
+# Functions used in this script.
+#
 
-#Get VM MetaData
-$vmInfo = Invoke-RestMethod -Headers @{"Metadata"="true"} -Method GET  -Uri "http://169.254.169.254/metadata/instance?api-version=2021-02-01"
-$rgName = $vmInfo.compute.resourceGroupName
-$vmName = $vmInfo.compute.name
-$location = $vmInfo.compute.location
-$storageType = 'StandardSSD_LRS'
-$dataDiskName = $vmName + '_datadisk1'
-$dataDiskSize = "128"
-
-#Get full resource ID and split out the subscription ID
-$Inputstring = $vmInfo.compute.resourceid
-$CharArray =$InputString.Split("/")
-$subID = $CharArray[2]
-
-
-#Get Access Token  - VM must have a managed identity configured       
-Invoke-WebRequest -Uri 'http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https%3A%2F%2Fvault.azure.net' -Method GET -Headers @{Metadata="true"} -UseBasicParsing
-
-
-Connect-AzAccount -Identity
-Select-AzSubscription -SubscriptionId $subID
-
-$diskConfig = New-AzDiskConfig -SkuName $storageType -Location $location -CreateOption Empty -DiskSizeGB $dataDiskSize
-$dataDisk1 = New-AzDisk -DiskName $dataDiskName -Disk $diskConfig -ResourceGroupName $rgName 
-
-$vm = Get-AzVM -Name $vmName -ResourceGroupName $rgName
-Add-AzVMDataDisk -VM $vm -Name $dataDiskName -CreateOption Attach -ManagedDiskId $dataDisk1.Id -Lun 1
-
-Update-AzVM -VM $vm -ResourceGroupName $rgName -AsJob
-
-
-#When running non-interactively the above Update-Azvm never seemed to complete.  It is now run with -asjob and the below sleep should be enough time for update-azvm to complete
-Start-Sleep -Seconds 120
-
-
-#Get raw disks and format
-$disks = Get-Disk | Where-Object partitionstyle -eq 'raw' | Sort-Object number
-
-    $letters = 70..89 | ForEach-Object { [char]$_ }
-    $count = 0
-    $labels = "data1","data2"
-
-    foreach ($disk in $disks) {
-        $driveLetter = $letters[$count].ToString()
-        $disk |
-        Initialize-Disk -PartitionStyle MBR -PassThru |
-        New-Partition -UseMaximumSize -DriveLetter $driveLetter |
-        Format-Volume -FileSystem NTFS -NewFileSystemLabel $labels[$count] -Confirm:$false -Force
-	$count++
+function Ensure-PowershellModules
+{
+    [CmdletBinding()]
+    param(
+        [string] $PsModulesStr
+    )
+    Set-PSRepository -Name PSGallery -InstallationPolicy Trusted 
+    Install-PackageProvider -Name nuget -Confirm:$False
+    $PsModules = $PsModulesStr.Split(",")
+    foreach($m in $PsModules)
+    {
+        Install-Module $m -Confirm:$False
     }
+
+
+}
+
+function Ensure-PowerShell
+{
+    [CmdletBinding()]
+    param(
+        [int] $Version
+    )
+
+    if ($PSVersionTable.PSVersion.Major -lt $Version)
+    {
+        throw "The current version of PowerShell is $($PSVersionTable.PSVersion.Major). Prior to running this artifact, ensure you have PowerShell $Version or higher installed."
+    }
+}
+
+function RunCommand
+{
+
+    [CmdletBinding()]
+    param(
+        [int] $diskSize,
+        [string] $dataDiskNameSuffix,
+        [string] $storageType
+    )
+    # Run custom command for this artifact.
+
+    $VM = Invoke-RestMethod -Headers @{"Metadata"="true"} -Method GET  -Uri "http://169.254.169.254/metadata/instance?api-version=2021-02-01"
+    Login-AzAccount -Identity
+
+    $dataDiskName = $VM.compute.name + $dataDiskNameSuffix
+    $diskConfig = New-AzDiskConfig -SkuName $storageType -Location $vm.compute.location -CreateOption Empty -DiskSizeGB $diskSize 
+    $dataDisk1 = New-AzDisk -DiskName $dataDiskName -Disk $diskConfig -ResourceGroupName $vm.compute.resourceGroupName 
+
+    $vmToUpdate = Get-AzVM -Name $VM.Compute.Name -ResourceGroupName $vm.compute.resourceGroupName
+    Add-AzVMDataDisk -VM $vmToUpdate -Name $dataDiskName -CreateOption Attach -ManagedDiskId $dataDisk1.Id -Lun 1
+
+    Update-AzVM -VM $vmToUpdate -ResourceGroupName $vm.compute.resourceGroupName
+
+    Start-Sleep -Seconds 15
+
+    $disks = Get-Disk | Where-Object partitionstyle -eq 'raw' | Sort-Object number
+
+        $letters = 70..89 | ForEach-Object { [char]$_ }
+        $count = 0
+        $labels = "data1","data2"
+
+        foreach ($disk in $disks) {
+            $driveLetter = $letters[$count].ToString()
+            $disk |
+            Initialize-Disk -PartitionStyle MBR -PassThru |
+            New-Partition -UseMaximumSize -DriveLetter $driveLetter |
+            Format-Volume -FileSystem NTFS -NewFileSystemLabel $labels[$count] -Confirm:$false -Force
+	    $count++
+        }
+}
+
+function Invoke-ExpressionImpl
+{
+    [CmdletBinding()]
+    param(
+        $Expression
+    )
+
+    # This call will normally not throw. So, when setting -ErrorVariable it causes it to throw.
+    # The variable $expError contains whatever is sent to stderr.
+    Invoke-Expression $Expression -ErrorVariable expError
+
+    # This check allows us to capture cases where the command we execute exits with an error code.
+    # In that case, we do want to throw an exception with whatever is in stderr. Normally, when
+    # Invoke-Expression throws, the error will come the normal way (i.e. $Error) and pass via the
+    # catch below.
+    if ($LastExitCode -or $expError)
+    {
+        if ($LastExitCode -eq 3010)
+        {
+            # Expected condition. The recent changes indicate a reboot is necessary. Please reboot at your earliest convenience.
+        }
+        elseif ($expError[0])
+        {
+            throw $expError[0]
+        }
+        else
+        {
+            throw "Installation failed ($LastExitCode)."
+        }
+    }
+}
+
+function Validate-Params
+{
+    [CmdletBinding()]
+    param(
+    )
+
+    if ([string]::IsNullOrEmpty($PsModules))
+    {
+        throw 'PsModules parameter is required.'
+    }
+}
+
+###################################################################################################
+#
+# Main execution block.
+#
+
+try
+{
+    Push-Location $PSScriptRoot
+
+    Write-Host 'Validating parameters.'
+    Validate-Params
+
+    Write-Host 'Configuring PowerShell session.'
+    Ensure-PowerShell -Version $PSVersionRequired
+    Enable-PSRemoting -Force -SkipNetworkProfileCheck | Out-Null
+
+    Write-Host 'Configuring PowerShell Modules.'
+    Ensure-PowershellModules $PsModules
+
+    Write-Host 'Running Command'
+    RunCommand -diskSize $diskSize -dataDiskNameSuffix $dataDiskNameSuffix -storageType $storageType
+
+    Write-Host "`nThe artifact was applied successfully.`n"
+}
+finally
+{
+    Pop-Location
+}
