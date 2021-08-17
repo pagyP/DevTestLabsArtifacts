@@ -124,7 +124,7 @@ function RunCommand
 
     Update-AzVM -VM $vmToUpdate -ResourceGroupName $vm.compute.resourceGroupName
 
-    Start-Sleep -Seconds 15
+    Start-Sleep -Seconds 60
 
     $disks = Get-Disk | Where-Object partitionstyle -eq 'raw' | Sort-Object number
 
