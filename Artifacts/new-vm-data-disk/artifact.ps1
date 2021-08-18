@@ -78,7 +78,7 @@ function Ensure-PowershellModules
         [string] $PsModulesStr
     )
     Set-PSRepository -Name PSGallery -InstallationPolicy Trusted 
-    Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Confirm:$false
+    #Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Confirm:$false
     #Install-PackageProvider -Name nuget -Confirm:$False
     $PsModules = $PsModulesStr.Split(",")
     foreach($m in $PsModules)
@@ -195,6 +195,7 @@ function Validate-Params
 try
 {
     Push-Location $PSScriptRoot
+    Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Confirm:$false
 
     Write-Host 'Validating parameters.'
     Validate-Params
