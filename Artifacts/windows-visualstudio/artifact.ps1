@@ -177,12 +177,12 @@ try
         if ($sku -eq 'Professional')
         {
             $argumentList = $installerArgsList + $commonArgsList + $proffesionalModulesArgsList
-            $downloadUrl = 'https://visualstudio.microsoft.com/thank-you-downloading-visual-studio/?sku=Professional&rel=16'
+            $downloadUrl = 'https://visualstudio.microsoft.com/thank-you-downloading-visual-studio/?sku=professional&rel=16&utm_medium=microsoft&utm_source=docs.microsoft.com&utm_campaign=offline+install&utm_content=download+vs2019'
         }
         elseif ($sku -eq 'Enterprise')
         {
             $argumentList = $installerArgsList + $commonArgsList + $enterpriseModulesArgsList
-            $downloadUrl = 'https://visualstudio.microsoft.com/thank-you-downloading-visual-studio/?sku=Enterprise&rel=16'
+            $downloadUrl = 'https://visualstudio.microsoft.com/thank-you-downloading-visual-studio/?sku=enterprise&rel=16&utm_medium=microsoft&utm_source=docs.microsoft.com&utm_campaign=offline+install&utm_content=download+vs2019'
         }
     }
     else
