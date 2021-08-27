@@ -26,3 +26,5 @@ trap
 ###################################################################################################
 
 New-LocalGroup -Name SQLAdmins 
+
+choco install sql-server-2019 --params /SQLSYSADMINACCOUNTS:SQLAdmins
