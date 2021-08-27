@@ -123,9 +123,9 @@ function RunCommand
     $vmToUpdate = Get-AzVM -Name $VM.Compute.Name -ResourceGroupName $vm.compute.resourceGroupName
     Add-AzVMDataDisk -VM $vmToUpdate -Name $dataDiskName -CreateOption Attach -ManagedDiskId $dataDisk1.Id -Lun 1
 
-    Update-AzVM -VM $vmToUpdate -ResourceGroupName $vm.compute.resourceGroupName
+    Update-AzVM -VM $vmToUpdate -ResourceGroupName $vm.compute.resourceGroupName -AsJob
 
-    Start-Sleep -Seconds 60
+    Start-Sleep -Seconds 120
 
     $disks = Get-Disk | Where-Object partitionstyle -eq 'raw' | Sort-Object number
 
